@@ -191,7 +191,7 @@ pytest -q
 python experiments/run_v0.py --seeds 64 --out results/v0.json
 ```
 
-The frozen receipt is regression-tested exactly. CI runs the unit/invariant suite on Python 3.11 and 3.12 and also executes a smaller deterministic scientific smoke run.
+The frozen receipt is regression-tested structurally, with tight numerical tolerance for cross-platform floating-point drift. CI runs the unit/invariant suite on Python 3.11 and 3.12 and also executes a smaller deterministic scientific smoke run.
 
 ## Next honest gate
 
