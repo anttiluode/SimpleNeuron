@@ -1,0 +1,82 @@
+{
+  "gates": {
+    "gate0": {
+      "classification": "PASS_INVARIANTS",
+      "interpolation_error": 0.0,
+      "silent_decay_ratio": 0.8,
+      "spectral_radius": 0.9000000000000006,
+      "suppressed_spike": 0,
+      "suppressed_state_norm": 1.0
+    },
+    "gate1": {
+      "alignment_delta": 0.7758082009517268,
+      "classification": "PASS_LOCAL_STEERING",
+      "paired_alignment_mean": 0.9991873425116198,
+      "paired_alignment_min": 0.9985692256299098,
+      "seeds": 64,
+      "shuffled_alignment_max": 0.35955383239521543,
+      "shuffled_alignment_mean": 0.22337914155989302
+    },
+    "gate2": {
+      "classification": "PASS_ROUTE_SEMANTICS",
+      "intact_alignment_mean": 0.9991876966432838,
+      "intact_minus_random": 0.5554082388757418,
+      "intact_minus_shuffle": 0.9808571003259736,
+      "payload_values": [
+        0,
+        1
+      ],
+      "port_shuffle_alignment_mean": 0.018330596317310148,
+      "random_B_alignment_mean": 0.443779457767542,
+      "seeds": 64
+    },
+    "gate3": {
+      "classification": "KNEE_EARNS_ROLE",
+      "conditions": {
+        "direct": {
+          "onset_latency_mean": 0.0,
+          "signal_distractor_ratio_mean": 2.0,
+          "washout_residual_mean": 0.0
+        },
+        "linear_trace": {
+          "onset_latency_mean": 0.0,
+          "signal_distractor_ratio_mean": 3.197513606993534,
+          "washout_residual_mean": 0.00763467235317708
+        },
+        "soft_knee": {
+          "onset_latency_mean": 0.0,
+          "signal_distractor_ratio_mean": 90.86411703841301,
+          "washout_residual_mean": 1.2154025297657387e-05
+        }
+      },
+      "knee_over_linear_ratio_gain": 28.417116612006573,
+      "latency_ok": true,
+      "seeds": 64,
+      "single_pulse_gain_matched": true,
+      "washout_ok": true
+    },
+    "gate4": {
+      "attacker": "same learned B and soma, current cue only, no resident history",
+      "classification": "PASS_LIVING_STATE",
+      "context_delay_steps": 3,
+      "decay": 0.97,
+      "history_retention_mean": 0.9126729999999998,
+      "interpolation_error_max": 2.2887833992611187e-16,
+      "living_context_accuracy_mean": 1.0,
+      "living_minus_stateless_accuracy": 0.5,
+      "other_context_margin_min": 0.16668242630946228,
+      "positive_context_margin_min": 0.3232722016459082,
+      "same_ping_state_separation_mean": 1.2562808820860971,
+      "seeds": 64,
+      "stateless_context_accuracy_mean": 0.5
+    }
+  },
+  "overall_notes": [
+    "All machine learning is receiver-local; no backpropagation is used.",
+    "Axonal topology is fixed in v0.",
+    "The Ca-like knee is retained only if it beats the matched linear trace on its predeclared temporal-selectivity gate.",
+    "Gate 4 tests whether retained receiver history changes the consequence of a later identical cue.",
+    "The Gate 4 attacker keeps the learned route coordinate and soma but removes resident history."
+  ],
+  "version": "v1"
+}

@@ -8,7 +8,7 @@ It is **not** a claim that biological neurons literally run these equations. The
 
 > If a receiver already contains a rich continuously evolving state, can a tiny routed event learn to mean “push that state this way” without backpropagating a global loss?
 
-v0 says **yes in a controlled synthetic setting**, and it gives a Ca-like soft knee one narrowly defined job: detect temporally clustered pings better than a matched linear trace.
+v0 said **yes in a controlled synthetic setting** for local route meaning, and gave a Ca-like soft knee one narrowly defined job: detect temporally clustered pings better than a matched linear trace. v1 adds the missing state test: does earlier routed history remain resident long enough to change what a later identical cue does?
 
 ## The machine
 
@@ -89,9 +89,9 @@ soft knee
 
 The soft knee is allowed to stay only if it adds useful temporal selectivity beyond the linear trace. Its job is therefore not “calcium magic”; it is specifically **clustered-event sensitivity**.
 
-## Frozen v0 result
+## Frozen results
 
-Canonical receipt: [`results/v0.json`](results/v0.json), 64 deterministic seeds.
+Frozen receipts: [`results/v0.json`](results/v0.json) and [`results/v1.json`](results/v1.json), each with 64 deterministic seeds. v0 remains unchanged; v1 adds Gate 4.
 
 | Gate | Result |
 |---|---:|
@@ -99,6 +99,7 @@ Canonical receipt: [`results/v0.json`](results/v0.json), 64 deterministic seeds.
 | 1 — local port steering | `PASS_LOCAL_STEERING` |
 | 2 — one-bit route semantics | `PASS_ROUTE_SEMANTICS` |
 | 3 — Ca-like temporal knee | `KNEE_EARNS_ROLE` |
+| 4 — living resident state | `PASS_LIVING_STATE` |
 
 ### Gate 0 — resident state really is resident
 
@@ -151,7 +152,24 @@ Mean onset latency is **0 steps** for all three conditions. Mean washout residua
 
 This is a **constructed mechanism witness**. The knee is explicitly designed to convert temporal clustering into nonlinear gain, so this does *not* establish that calcium-like nonlinearities are generally better, biologically required, or useful on arbitrary tasks. It establishes only that such a local knee has a concrete computational role that a matched linear trace does not reproduce on this gate.
 
-## What v0 is — and is not
+### Gate 4 — the receiver's past changes a later identical cue
+
+Gate 4 keeps the learned receiving matrix `B` from v0 but finally gives the receiver a nonzero life before the cue. A context event lands first, the state evolves silently for three steps under `A = 0.97 I`, and only then does the same cue arrive. One context should make the soma/AIS publish; an alternative context should not.
+
+Across 64 seeds:
+
+- living receiver context accuracy: **1.0000**
+- stateless attacker accuracy: **0.5000**
+- living minus stateless: **+0.5000**
+- retained context norm after the silent delay: **0.912673** of the original
+- final-state separation under the **same later cue**: **1.256281**
+- simultaneous-drive interpolation error: **2.29e-16** maximum
+
+The attacker is deliberately given the **same learned `B` and the same soma**. It loses only the earlier resident state and sees the current cue. Because its current input is identical in both histories, it cannot distinguish the two contexts.
+
+This establishes a narrow but important point: **route semantics alone are not the whole computation. Resident history can change the consequence of the same later event.** In the current linear dendrite, the instantaneous steering vector `B[:, k]` itself is still additive and state-independent; the state dependence appears in the resulting full state and at the soma/AIS publication boundary. So Gate 4 does not yet establish a nonlinear attractor or state-dependent dendritic gain. It establishes that keeping state alive adds a computational degree of freedom that a reset/stateless lookup lacks.
+
+## What v1 is — and is not
 
 The current object is roughly:
 
@@ -169,7 +187,7 @@ other resident dynamical states
 
 The rich thing mostly stays resident. The small thing travels.
 
-v0 does **not** yet learn axonal topology. The route graph is fixed so that we can isolate the receiver-side claim first. It also has no structural growth, active dendritic channels, reward, global optimizer, spike waveform model, or biological calibration.
+v1 still does **not** learn axonal topology. The route graph is fixed so that we can isolate the receiver-side claim first. It also has no structural growth, active dendritic channels, reward, global optimizer, spike waveform model, or biological calibration.
 
 ## Lineage
 
@@ -189,15 +207,14 @@ Those repositories motivate this architecture. They do not validate a biological
 python -m pip install -e '.[test]'
 pytest -q
 python experiments/run_v0.py --seeds 64 --out results/v0.json
+python experiments/run_v1.py --seeds 64 --out results/v1.json
 ```
 
-The frozen receipt is regression-tested structurally, with tight numerical tolerance for cross-platform floating-point drift. CI runs the unit/invariant suite on Python 3.11 and 3.12 and also executes a smaller deterministic scientific smoke run.
+The frozen receipts are regression-tested structurally, with tight numerical tolerance for cross-platform floating-point drift. CI runs the suite on Python 3.11 and 3.12 and executes a smaller deterministic v1 scientific smoke run.
 
 ## Next honest gate
 
-Only after v0 is stable should the axonal graph itself learn.
-
-The clean next question is:
+With resident history now earning a role in Gate 4, the next clean question is:
 
 > Can strictly local pre/post timing learn **where** a sparse event should be routed, while the receiver independently learns **what that route means** in its own state space?
 

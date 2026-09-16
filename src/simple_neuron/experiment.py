@@ -283,6 +283,155 @@ def run_gate3(seeds: int = 64) -> dict:
     }
 
 
+def _run_living_context_trial(
+    B: np.ndarray,
+    context_port: int,
+    *,
+    decay: float,
+    delay: int,
+    soma: np.ndarray,
+    threshold: float,
+) -> tuple[np.ndarray, np.ndarray, float, int]:
+    neuron = ResidentNeuron(
+        A=np.eye(B.shape[0]) * decay,
+        B=B,
+        soma=soma,
+        threshold=threshold,
+    )
+    context = np.zeros(B.shape[1], dtype=float)
+    context[context_port] = 1.0
+    state0, _, _ = neuron.step(port_drive=context)
+    for _ in range(delay):
+        neuron.step(port_drive=np.zeros(B.shape[1], dtype=float))
+    retained = neuron.state.copy()
+    cue = np.zeros(B.shape[1], dtype=float)
+    cue[0] = 1.0
+    _, soma_value, spike = neuron.step(port_drive=cue)
+    return state0, retained, soma_value, spike
+
+
+def _living_state_after(
+    B: np.ndarray,
+    context_port: int,
+    drive: np.ndarray,
+    *,
+    decay: float,
+    delay: int,
+) -> np.ndarray:
+    neuron = ResidentNeuron(
+        A=np.eye(B.shape[0]) * decay,
+        B=B,
+        soma=np.zeros(B.shape[0]),
+        threshold=99.0,
+    )
+    context = np.zeros(B.shape[1], dtype=float)
+    context[context_port] = 1.0
+    neuron.step(port_drive=context)
+    for _ in range(delay):
+        neuron.step(port_drive=np.zeros(B.shape[1], dtype=float))
+    state, _, _ = neuron.step(port_drive=drive)
+    return state
+
+
+def run_gate4(seeds: int = 64) -> dict:
+    living_accuracies = []
+    stateless_accuracies = []
+    history_retentions = []
+    separations = []
+    interpolation_errors = []
+    positive_margins = []
+    negative_margins = []
+
+    decay = 0.97
+    delay = 3
+    threshold = 0.95
+
+    for seed in range(seeds):
+        learned, _, _ = _train_port_matrix(seed, dim=4, ports=3)
+        B = learned[:, :3]
+        soma = B[:, 0] + B[:, 1]
+        soma = soma / max(np.linalg.norm(soma), 1e-12)
+
+        state0_pos, retained_pos, soma_pos, spike_pos = _run_living_context_trial(
+            B, 1, decay=decay, delay=delay, soma=soma, threshold=threshold
+        )
+        _, _, soma_neg, spike_neg = _run_living_context_trial(
+            B, 2, decay=decay, delay=delay, soma=soma, threshold=threshold
+        )
+        living_accuracies.append(0.5 * ((spike_pos == 1) + (spike_neg == 0)))
+        positive_margins.append(float(soma_pos - threshold))
+        negative_margins.append(float(threshold - soma_neg))
+        history_retentions.append(
+            float(np.linalg.norm(retained_pos) / max(np.linalg.norm(state0_pos), 1e-12))
+        )
+
+        stateless = ResidentNeuron(
+            A=np.zeros((B.shape[0], B.shape[0])),
+            B=B,
+            soma=soma,
+            threshold=threshold,
+        )
+        cue = np.zeros(B.shape[1], dtype=float)
+        cue[0] = 1.0
+        _, _, stateless_spike = stateless.step(port_drive=cue)
+        stateless_accuracies.append(
+            0.5 * ((stateless_spike == 1) + (stateless_spike == 0))
+        )
+
+        cue_drive = np.zeros(B.shape[1], dtype=float)
+        cue_drive[0] = 1.0
+        pos_state = _living_state_after(B, 1, cue_drive, decay=decay, delay=delay)
+        neg_state = _living_state_after(B, 2, cue_drive, decay=decay, delay=delay)
+        separations.append(float(np.linalg.norm(pos_state - neg_state)))
+
+        alt_drive = np.zeros(B.shape[1], dtype=float)
+        alt_drive[2] = 1.0
+        mix_drive = 0.5 * (cue_drive + alt_drive)
+        cue_state = _living_state_after(B, 1, cue_drive, decay=decay, delay=delay)
+        alt_state = _living_state_after(B, 1, alt_drive, decay=decay, delay=delay)
+        mix_state = _living_state_after(B, 1, mix_drive, decay=decay, delay=delay)
+        interpolation_errors.append(
+            float(np.linalg.norm(mix_state - 0.5 * (cue_state + alt_state)))
+        )
+
+    living_mean = float(np.mean(living_accuracies))
+    stateless_mean = float(np.mean(stateless_accuracies))
+    retention_mean = float(np.mean(history_retentions))
+    separation_mean = float(np.mean(separations))
+    interp_max = float(np.max(interpolation_errors))
+    accuracy_gain = living_mean - stateless_mean
+
+    classification = (
+        'PASS_LIVING_STATE'
+        if (
+            living_mean >= 0.95
+            and accuracy_gain >= 0.40
+            and retention_mean >= 0.85
+            and separation_mean >= 1.0
+            and interp_max <= 1e-10
+            and min(positive_margins) > 0.0
+            and min(negative_margins) > 0.0
+        )
+        else 'RESIDENT_STATE_NOT_NEEDED'
+    )
+
+    return {
+        'classification': classification,
+        'seeds': int(seeds),
+        'decay': decay,
+        'context_delay_steps': delay,
+        'living_context_accuracy_mean': living_mean,
+        'stateless_context_accuracy_mean': stateless_mean,
+        'living_minus_stateless_accuracy': accuracy_gain,
+        'history_retention_mean': retention_mean,
+        'same_ping_state_separation_mean': separation_mean,
+        'interpolation_error_max': interp_max,
+        'positive_context_margin_min': float(np.min(positive_margins)),
+        'other_context_margin_min': float(np.min(negative_margins)),
+        'attacker': 'same learned B and soma, current cue only, no resident history',
+    }
+
+
 def run_v0(seeds: int = 64) -> dict:
     return {
         'version': 'v0',
@@ -296,5 +445,21 @@ def run_v0(seeds: int = 64) -> dict:
             'All machine learning is receiver-local; no backpropagation is used.',
             'Axonal topology is fixed in v0.',
             'The Ca-like knee is retained only if it beats the matched linear trace on its predeclared temporal-selectivity gate.',
+        ],
+    }
+
+
+def run_v1(seeds: int = 64) -> dict:
+    v0 = run_v0(seeds=seeds)
+    return {
+        'version': 'v1',
+        'gates': {
+            **v0['gates'],
+            'gate4': run_gate4(seeds=seeds),
+        },
+        'overall_notes': [
+            *v0['overall_notes'],
+            'Gate 4 tests whether retained receiver history changes the consequence of a later identical cue.',
+            'The Gate 4 attacker keeps the learned route coordinate and soma but removes resident history.',
         ],
     }
